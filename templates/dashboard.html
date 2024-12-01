@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor Data Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Basic reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+    </style>
+     <!-- link the external css file -->
+     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Sensor Data Dashboard</h1>
+
+        <!-- Data Table (moved to top) -->
+        <h2>Latest Sensor Data</h2>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Flow 1</th>
+                    <th>Flow 2</th>
+                    <th>Temperature</th>
+                    <th>Average Pressure</th>
+                    <th>Position</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <!-- Start and Stop Buttons -->
+        <div class="btn-container">
+            <button onclick="startTest()">Start Test</button>
+            <button onclick="stopTest()" style="background-color: red; color: white;">Stop Test</button>
+        </div>
+
+        <!-- Chart.js Graph  -->
+        <div id="graphContainer" style="display: none;">
+            <canvas id="sensorGraph"></canvas>
+        </div>
+        
+    </div>
+
+    <script>
+        // Set up the Chart.js graph
+        var ctx = document.getElementById('sensorGraph').getContext('2d');
+        var sensorGraph = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [], // Labels for time or data points
+                datasets: [{
+                    label: 'Flow 1',
+                    data: [], // Flow 1 data values
+                    borderColor: 'rgb(75, 192, 192)',
+                    fill: false
+                }, {
+                    label: 'Flow 2',
+                    data: [], // Flow 2 data values
+                    borderColor: 'rgb(153, 102, 255)',
+                    fill: false
+                }, {
+                    label: 'Temperature',
+                    data: [], // temperature data values
+                    borderColor: 'rgba(255, 99, 132, 0.8)',
+                    fill: false
+                }, {
+                    label: 'Pressure',
+                    data: [], // Pressure data values
+                    borderColor: 'rgb(54, 162, 235)',
+                    fill: false
+                }, {
+                    label: 'Position',
+                    data: [], // Position data values
+                    borderColor: 'rgb(255, 206, 86)',
+                    fill: false
+                }
+            ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        beginAtZero: true
+                    },
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Function to fetch sensor data and update the graph and table
+        async function fetchData() {
+            const response = await fetch('/api/data');
+            const data = await response.json();
+
+            let labels = [];
+            let flow1Data = [];
+            let flow2Data = [];
+            let temperatureData = [];
+            let pressureData = [];
+            let positionData = [];
+
+            // Process the received data and update the graph
+            data.forEach(item => {
+                labels.push(new Date(item.timestamp * 1000).toLocaleString());
+                flow1Data.push(item.flow_1);
+                flow2Data.push(item.flow_2);
+                temperatureData.push(item.temperature);
+                pressureData.push(item.avg_pressure);
+                positionData.push(item.position);
+
+            });
+
+            // Update chart data
+            sensorGraph.data.labels = labels;
+            sensorGraph.data.datasets[0].data = flow1Data;
+            sensorGraph.data.datasets[1].data = flow2Data;
+            sensorGraph.data.datasets[2].data = temperatureData;
+            sensorGraph.data.datasets[3].data = pressureData;
+            sensorGraph.data.datasets[4].data = positionData;
+
+            sensorGraph.update();
+            
+            // Show the graph container once data is available
+            document.getElementById('graphContainer').style.display = 'block';
+
+            // Update table data
+            let tableBody = document.querySelector('#dataTable tbody');
+            tableBody.innerHTML = ''; // Clear the table before inserting new rows
+
+            data.forEach(item => {
+                let row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${new Date(item.timestamp * 1000).toLocaleString()}</td>
+                    <td>${item.flow_1}</td>
+                    <td>${item.flow_2}</td>
+                    <td>${item.temperature}</td>
+                    <td>${item.avg_pressure}</td>
+                    <td>${item.position}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Start the test (add logic to start data acquisition)
+        function startTest() {
+            console.log("Test Started");
+            fetch('/start', { method: 'POST' });
+
+            // Start fetching data every 3 seconds after the test begins
+            intervalId = setInterval(fetchData, 3000);
+        }
+
+        // Stop the test (add logic to stop data acquisition)
+        function stopTest() {
+            console.log("Test Stopped");
+            fetch('/stop', { method: 'POST' });
+
+            // Stop fetching data when the test is stopped
+            clearInterval(intervalId);
+        }
+    </script>
+</body>
+</html>
